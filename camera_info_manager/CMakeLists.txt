@@ -17,33 +17,57 @@ endif()
 
 find_package(ament_cmake_ros REQUIRED)
 
-find_package(ament_index_cpp REQUIRED)
-find_package(camera_calibration_parsers REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rcpputils REQUIRED)
+find_package(camera_calibration_parsers REQUIRED)
 find_package(sensor_msgs REQUIRED)
-
-include_directories(include)
 
 # add a library
 add_library(${PROJECT_NAME} src/camera_info_manager.cpp)
+add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+
+target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE "CAMERA_INFO_MANAGER_BUILDING_DLL")
 
-ament_target_dependencies(
+target_link_libraries(
   ${PROJECT_NAME}
-  ament_index_cpp
-  camera_calibration_parsers
-  rclcpp
-  rcpputils
-  sensor_msgs
+  PUBLIC
+  rclcpp::rclcpp
+
+  # For now, use the module mode properties to link the libraries since alias targets aren't supplied
+  ${camera_calibration_parsers_LIBRARIES}
+  ${sensor_msgs_LIBRARIES}
 )
+
+# Because sensor_msgs doesn't yet support modern cmake, add the header include directory manually
+# ament_target_dependencies could also be used
+target_include_directories(${PROJECT_NAME} PUBLIC
+  ${sensor_msgs_INCLUDE_DIRS}
+  ${camera_calibration_parsers_INCLUDE_DIRS}
+)
+# ament_target_dependencies(
+#   ${PROJECT_NAME}
+#   camera_calibration_parsers
+#   rclcpp
+#   sensor_msgs
+# )
 
 install(
   TARGETS ${PROJECT_NAME}
+  EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include
+)
+
+install(
+  EXPORT export_${PROJECT_NAME}
+  NAMESPACE ${PROJECT_NAME}::
+  DESTINATION lib/cmake/
 )
 
 install(
@@ -51,9 +75,8 @@ install(
   DESTINATION include
 )
 
-ament_export_include_directories(include)
-ament_export_dependencies(ament_index_cpp camera_calibration_parsers rclcpp rcpputils sensor_msgs)
-ament_export_libraries(${PROJECT_NAME})
+# ament_export_include_directories(include)
+# ament_export_libraries(${PROJECT_NAME})
 
 if(BUILD_TESTING)
   #TODO(mjcarroll) switch back to this once I can fix copyright check
